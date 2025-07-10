@@ -1,10 +1,11 @@
+import { AuthWrapper } from '@/components/AuthWrapper';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-export default function LoginScreen() {
+function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -16,15 +17,14 @@ export default function LoginScreen() {
       return;
     }
 
-    const success = await login(email, password);
+    const result = await login(email, password);
 
-    if (success) {
+    if (result.success) {
       router.replace('/(tabs)');
     } else {
-      Alert.alert('Lỗi', 'Email hoặc mật khẩu không đúng');
+      Alert.alert('Lỗi', result.error || 'Đăng nhập thất bại');
     }
   };
-
 
   return (
     <KeyboardAvoidingView
@@ -97,5 +97,13 @@ export default function LoginScreen() {
         </View>
       </View>
     </KeyboardAvoidingView>
+  );
+}
+
+export default function LoginScreen() {
+  return (
+    <AuthWrapper>
+      <LoginForm />
+    </AuthWrapper>
   );
 }

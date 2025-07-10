@@ -6,14 +6,16 @@ import "./global.css";
 
 export default function RootLayout() {
   return (
-    <GluestackUIProvider mode="light">
-      <AuthProvider>
+    <AuthProvider>
+      <GluestackUIProvider mode="light">
         <StatusBar style="dark" backgroundColor="#F9FAFB" />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="blindbox/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
         </Stack>
-      </AuthProvider>
-    </GluestackUIProvider>
+      </GluestackUIProvider>
+    </AuthProvider>
   );
 }

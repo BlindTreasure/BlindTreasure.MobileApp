@@ -1,3 +1,4 @@
+
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
@@ -42,18 +43,18 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
+    <View className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
       <View
-        className="bg-white p-5 border-b border-gray-200"
-        style={{ paddingTop: statusBarHeight + 20 }}
+        className="bg-white px-4 py-3 border-b border-gray-200"
+        style={{ paddingTop: statusBarHeight + 12 }}
       >
-        <Text className="text-2xl font-bold text-gray-900">Hồ sơ</Text>
+        <Text className="text-xl font-bold text-gray-800">Hồ sơ</Text>
       </View>
 
       <ScrollView
         className="flex-1 p-6"
-        contentContainerStyle={{ paddingBottom: 30 }}
+        contentContainerStyle={{ paddingBottom: 30, paddingTop: 20 }}
         showsVerticalScrollIndicator={false}
       >
         <View className="items-center mb-8">
@@ -87,11 +88,6 @@ export default function ProfileScreen() {
           <Text className="text-2xl font-bold text-gray-900 mb-2 text-center">
             {user?.fullName || 'Người dùng'}
           </Text>
-          <View className="bg-blue-100 px-3 py-1 rounded-full mb-6">
-            <Text className="text-blue-700 text-sm font-medium">
-              {user?.roleName || 'User'}
-            </Text>
-          </View>
         </View>
 
         <View className="bg-white rounded-xl p-6 mb-6 shadow-sm">

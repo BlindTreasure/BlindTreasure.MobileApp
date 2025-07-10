@@ -1,39 +1,56 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { Redirect, router } from 'expo-router';
+import { router } from 'expo-router';
 import React from 'react';
-import { Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 interface AuthGuardProps {
   children: React.ReactNode;
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
+  const [shouldRedirect, setShouldRedirect] = React.useState(false);
 
-  // Force re-render when auth state changes
+  // Wait a bit after loading completes before redirecting
   React.useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && !user) {
+      const timer = setTimeout(() => {
+        setShouldRedirect(true);
+      }, 100);
+
+      return () => clearTimeout(timer);
+    } else if (user) {
+      setShouldRedirect(false);
+    }
+  }, [isLoading, user]);
+
+  // Handle redirect
+  React.useEffect(() => {
+    if (shouldRedirect) {
       router.replace('/login');
     }
-  }, [isAuthenticated, isLoading]);
+  }, [shouldRedirect]);
 
-  if (isLoading) {
+  // Show loading while auth is being checked or while waiting for redirect decision
+  if (isLoading || (!user && !shouldRedirect)) {
     return (
-      <View className="flex-1 bg-gray-50 items-center justify-center">
-        <View className="bg-white rounded-xl p-8 items-center shadow-sm">
-          <View className="w-12 h-12 bg-blue-500 rounded-full items-center justify-center mb-4">
-            <Text className="text-white font-bold text-lg">BT</Text>
-          </View>
-          <Text className="text-gray-900 font-semibold text-lg mb-2">BlindTreasure</Text>
-          <Text className="text-gray-500">Đang tải...</Text>
-        </View>
+      <View className="flex-1 justify-center items-center">
+        <ActivityIndicator size="large" color="#3B82F6" />
+        <Text className="mt-2 text-gray-600">Đang tải...</Text>
       </View>
     );
   }
 
-  if (!isAuthenticated) {
-    return <Redirect href="/login" />;
+  // Show content if user exists
+  if (user) {
+    return <>{children}</>;
   }
 
-  return <>{children}</>;
+  // Show loading while redirecting
+  return (
+    <View className="flex-1 justify-center items-center">
+      <ActivityIndicator size="large" color="#3B82F6" />
+      <Text className="mt-2 text-gray-600">Đang chuyển hướng...</Text>
+    </View>
+  );
 }

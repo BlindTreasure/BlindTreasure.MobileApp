@@ -1,13 +1,12 @@
-import { User, authServices } from '@/services/auth';
+import { authService } from '@/services/authService';
+import { AuthState, User } from '@/types/auth';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-interface AuthContextType {
-  user: User | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+interface AuthContextType extends AuthState {
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
+  isInitializing: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -15,6 +14,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  const isAuthenticated = !!user;
 
   useEffect(() => {
     checkAuthState();
@@ -22,63 +24,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAuthState = async () => {
     try {
-      const authState = await authServices.getAuthState();
-      if (authState.isAuthenticated && authState.user) {
-        setUser(authState.user);
+      const isAuth = await authService.isAuthenticated();
+
+      if (isAuth) {
+        const currentUser = await authService.getCurrentUser();
+        setUser(currentUser);
+      } else {
+        setUser(null);
       }
     } catch (error) {
-      console.error('Error checking auth state:', error);
+      console.error('Auth check error:', error);
+      setUser(null);
     } finally {
       setIsLoading(false);
+      setIsInitializing(false);
     }
   };
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
+
     try {
-      setIsLoading(true);
-      const result = await authServices.login(email, password);
+      const result = await authService.login(email, password);
 
       if (result.success && result.user) {
         setUser(result.user);
-        return true;
+        return { success: true };
       }
 
-      return false;
+      return { success: false, error: result.error };
     } catch (error) {
-      console.error('Login error:', error);
-      return false;
+      return { success: false, error: 'Đăng nhập thất bại' };
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = async (): Promise<void> => {
+  const logout = async () => {
+    setIsLoading(true);
+
     try {
-      await authServices.logout();
+      await authService.logout();
       setUser(null);
     } catch (error) {
       console.error('Logout error:', error);
-      // Still clear user state even if API call fails
-      setUser(null);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const refreshToken = async (): Promise<boolean> => {
+  const refreshToken = async () => {
     try {
-      const result = await authServices.refreshToken();
-      return result.success;
+      return await authService.refreshToken();
     } catch (error) {
       console.error('Refresh token error:', error);
       return false;
     }
   };
 
-  const isAuthenticated = !!user;
-
   const value: AuthContextType = {
     user,
     isLoading,
     isAuthenticated,
+    isInitializing,
     login,
     logout,
     refreshToken,
