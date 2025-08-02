@@ -135,6 +135,65 @@ class AuthService {
     return await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
   }
 
+  // Update profile
+  async updateProfile(profileData: {
+    fullName?: string;
+    phoneNumber?: string;
+    dateOfBirth?: string;
+    avatarUrl?: string;
+    gender?: boolean;
+  }): Promise<{ success: boolean; user?: User; error?: string }> {
+    try {
+      const response = await axiosInstance.put("/me", profileData);
+
+      if (response.data.isSuccess) {
+        const updatedUser = response.data.value.data;
+
+        // Update stored user data
+        await this.saveUser(updatedUser);
+
+        return { success: true, user: updatedUser };
+      }
+
+      return { success: false, error: response.data.value.message };
+    } catch (error: any) {
+      console.error("Update profile error:", error);
+      return {
+        success: false,
+        error:
+          error.response?.data?.value?.message || "Cập nhật thông tin thất bại",
+      };
+    }
+  }
+
+  // Get current user profile
+  async getCurrentProfile(): Promise<{
+    success: boolean;
+    user?: User;
+    error?: string;
+  }> {
+    try {
+      const response = await axiosInstance.get("/me");
+
+      if (response.data.isSuccess) {
+        const user = response.data.value.data;
+
+        // Update stored user data
+        await this.saveUser(user);
+
+        return { success: true, user };
+      }
+
+      return { success: false, error: response.data.value.message };
+    } catch (error: any) {
+      console.error("Get profile error:", error);
+      return {
+        success: false,
+        error: error.response?.data?.value?.message || "Lấy thông tin thất bại",
+      };
+    }
+  }
+
   private async clearStorage(): Promise<void> {
     await AsyncStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
     await AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);

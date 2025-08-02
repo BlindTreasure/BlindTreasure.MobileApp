@@ -1,6 +1,8 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import AntDesign from '@expo/vector-icons/AntDesign';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -49,7 +51,16 @@ export default function ProfileScreen() {
         className="bg-white px-4 py-3 border-b border-gray-200"
         style={{ paddingTop: statusBarHeight + 12 }}
       >
-        <Text className="text-xl font-bold text-gray-800">Hồ sơ</Text>
+        <View className="flex-row justify-between items-center">
+          <Text className="text-xl font-bold text-gray-800">Hồ sơ</Text>
+          <TouchableOpacity
+            onPress={() => router.push('/profile/edit' as any)}
+            className="flex-row items-center"
+          >
+            <Ionicons name="create-outline" size={20} color="#FF6B35" />
+            <Text className="text-orange-500 font-medium ml-1">Chỉnh sửa</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -92,6 +103,15 @@ export default function ProfileScreen() {
 
         <View className="bg-white rounded-xl p-6 mb-6 shadow-sm">
           <Text className="text-lg font-semibold text-gray-900 mb-4">Thông tin cá nhân</Text>
+          <View className="flex-row items-center py-3 border-b border-gray-100">
+            <AntDesign name="user" size={20} color="#6B7280" />
+            <View className="ml-4 flex-1">
+              <Text className="text-sm text-gray-500 mb-1">Họ và tên</Text>
+              <Text className="text-gray-900 font-medium">
+                {user?.fullName}
+              </Text>
+            </View>
+          </View>
 
           <View className="space-y-4">
             <View className="flex-row items-center py-3 border-b border-gray-100">

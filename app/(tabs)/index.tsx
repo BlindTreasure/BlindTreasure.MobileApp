@@ -22,6 +22,14 @@ export default function HomeScreen() {
     router.push(`/product/${productId}` as any);
   };
 
+  const handleViewAllBlindBoxes = () => {
+    router.push('/blindboxes' as any);
+  };
+
+  const handleViewAllProducts = () => {
+    router.push('/products' as any);
+  };
+
   const fetchBlindBoxes = async (params = {}) => {
     setLoading(true);
     setError(null);
@@ -106,9 +114,14 @@ export default function HomeScreen() {
   return (
     <ScrollView className="flex-1 bg-gray-50">
       <Box className="p-4">
-        <Heading size="lg" className="mb-4 text-gray-800">BlindBoxes</Heading>
+        <Box className="flex-row justify-between items-center mb-4">
+          <Heading size="lg" className="text-gray-800">BlindBoxes</Heading>
+          <TouchableOpacity onPress={handleViewAllBlindBoxes}>
+            <Text className="text-blue-500 font-medium">Xem tất cả</Text>
+          </TouchableOpacity>
+        </Box>
 
-        {blindBoxes.length === 0 ? (
+        {!Array.isArray(blindBoxes) || blindBoxes.length === 0 ? (
           <Text className="text-center text-gray-500 mt-8">No BlindBoxes found</Text>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -141,7 +154,13 @@ export default function HomeScreen() {
           </ScrollView>
         )}
 
-        <Heading size="lg" className="mt-8 mb-4 text-gray-800">Sản phẩm</Heading>
+        <Box className="flex-row justify-between items-center mt-8 mb-4">
+          <Heading size="lg" className="text-gray-800">Sản phẩm</Heading>
+          <TouchableOpacity onPress={handleViewAllProducts}>
+            <Text className="text-blue-500 font-medium">Xem tất cả</Text>
+          </TouchableOpacity>
+        </Box>
+
         {products.length === 0 ? (
           <Text className="text-center text-gray-500 mt-8">No Products found</Text>
         ) : (

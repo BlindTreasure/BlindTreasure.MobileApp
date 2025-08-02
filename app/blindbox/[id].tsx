@@ -139,9 +139,19 @@ export default function BlindBoxDetailScreen() {
             resizeMode="cover"
           />
           <Box className="p-6">
-            <View className='flex flex-row justify-between'>
-              <Heading size="xl" className="mb-3 text-gray-800">{blindBox.name}</Heading>
-              <View className="flex-row items-center mb-4">
+            <View className="flex flex-row justify-between items-start mb-4">
+              <View className="flex-1 pr-2">
+                <Heading
+                  size="xl"
+                  className="text-gray-800"
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
+                >
+                  {blindBox.name}
+                </Heading>
+              </View>
+
+              <View className="flex-row items-center">
                 <Text className="text-2xl font-bold text-red-600">
                   {blindBox.price?.toLocaleString() || 'N/A'}₫
                 </Text>
