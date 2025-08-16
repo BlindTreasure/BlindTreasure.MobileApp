@@ -47,7 +47,7 @@ export default function ProductsScreen() {
         setError(null);
       }
 
-      const response = await axios.get(`${API_BASE_URL}/products`, {
+      const response = await axios.get(`${API_BASE_URL}/api/products`, {
         params: {
           status: 'Approved',
           page: pageNum,

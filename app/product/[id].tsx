@@ -50,7 +50,7 @@ export default function ProductDetailScreen() {
     setError(null);
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/products/${id}`);
+      const response = await axios.get(`${API_BASE_URL}/api/products/${id}`);
 
       if (response.data?.isSuccess && response.data?.value?.data) {
         setProduct(response.data.value.data);

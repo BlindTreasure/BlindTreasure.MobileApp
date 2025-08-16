@@ -62,7 +62,7 @@ export default function BlindBoxDetailScreen() {
     setError(null);
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/blind-boxes/${id}`);
+      const response = await axios.get(`${API_BASE_URL}/api/blind-boxes/${id}`);
 
       if (response.data?.isSuccess && response.data?.value?.data) {
         setBlindBox(response.data.value.data);

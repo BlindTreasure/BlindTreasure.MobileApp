@@ -1,5 +1,5 @@
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -8,7 +8,7 @@ export const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
@@ -16,12 +16,12 @@ export const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   async (config) => {
     try {
-      const token = await AsyncStorage.getItem('accessToken');
+      const token = await AsyncStorage.getItem("accessToken");
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
     } catch (error) {
-      console.error('Error getting token:', error);
+      console.error("Error getting token:", error);
     }
     return config;
   },
@@ -43,34 +43,38 @@ axiosInstance.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = await AsyncStorage.getItem('refreshToken');
-        
+        const refreshToken = await AsyncStorage.getItem("refreshToken");
+
         if (refreshToken) {
           // Try to refresh token
-          const refreshResponse = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
-            refreshToken,
-          });
+          const refreshResponse = await axios.post(
+            `${API_BASE_URL}/api/auth/refresh-token`,
+            {
+              refreshToken,
+            }
+          );
 
           if (refreshResponse.data.isSuccess) {
-            const { accessToken, refreshToken: newRefreshToken } = refreshResponse.data.value.data;
-            
+            const { accessToken, refreshToken: newRefreshToken } =
+              refreshResponse.data.value.data;
+
             // Save new tokens
-            await AsyncStorage.setItem('accessToken', accessToken);
-            await AsyncStorage.setItem('refreshToken', newRefreshToken);
-            
+            await AsyncStorage.setItem("accessToken", accessToken);
+            await AsyncStorage.setItem("refreshToken", newRefreshToken);
+
             // Retry original request with new token
             originalRequest.headers.Authorization = `Bearer ${accessToken}`;
             return axiosInstance(originalRequest);
           }
         }
       } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError);
-        
+        console.error("Token refresh failed:", refreshError);
+
         // Clear storage and redirect to login
-        await AsyncStorage.removeItem('accessToken');
-        await AsyncStorage.removeItem('refreshToken');
-        await AsyncStorage.removeItem('userData');
-        
+        await AsyncStorage.removeItem("accessToken");
+        await AsyncStorage.removeItem("refreshToken");
+        await AsyncStorage.removeItem("userData");
+
         // You can add navigation logic here if needed
         // router.replace('/login');
       }

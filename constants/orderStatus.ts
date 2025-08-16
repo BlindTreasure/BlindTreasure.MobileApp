@@ -3,12 +3,15 @@ export const ORDER_STATUS_MAP = {
   PENDING: "Chờ xác nhận",
   PAID: "Đã thanh toán",
   PROCESSING: "Chờ lấy hàng",
-  DELIVERING: "Đang giao hàng",
+  DELIVERING: "Chờ giao hàng",
   DELIVERED: "Đã giao",
-  COMPLETED: "Hoàn thành",
+  COMPLETED: "Đã giao",
   CANCELLED: "Đã hủy",
   RETURNED: "Trả hàng",
   REFUNDED: "Đã hoàn tiền",
+  // Add case-sensitive variants for inventory items
+  Delivering: "Đang giao hàng",
+  Delivered: "Đã giao",
 };
 
 // Order detail item status mapping (from backend enum)
@@ -34,6 +37,9 @@ export const ORDER_STATUS_COLORS = {
   CANCELLED: "#FF3B30",
   RETURNED: "#FF9500",
   REFUNDED: "#34C759",
+  // Add case-sensitive variants for inventory items
+  Delivering: "#FF6B35",
+  Delivered: "#34C759",
 };
 
 // Order detail item status colors

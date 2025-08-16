@@ -9,21 +9,27 @@ const STORAGE_KEYS = {
 };
 
 class AuthService {
-  // Login
   async login(
     email: string,
     password: string
   ): Promise<{ success: boolean; user?: User; error?: string }> {
     try {
-      const response = await axiosInstance.post<LoginResponse>("/auth/login", {
+      console.log("🔍 Login attempt:", {
         email,
-        password,
+        baseURL: process.env.EXPO_PUBLIC_API_BASE_URL,
       });
+
+      const response = await axiosInstance.post<LoginResponse>(
+        "/api/auth/login",
+        {
+          email,
+          password,
+        }
+      );
 
       if (response.data.isSuccess) {
         const { accessToken, refreshToken, user } = response.data.value.data;
 
-        // Save to storage
         await this.saveTokens(accessToken, refreshToken);
         await this.saveUser(user);
 
@@ -32,23 +38,30 @@ class AuthService {
 
       return { success: false, error: response.data.value.message };
     } catch (error: any) {
-      console.error("Login error:", error);
+      console.error("❌ Login error:", error);
+      console.error("❌ Error details:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+      });
       return {
         success: false,
-        error: error.response?.data?.value?.message || "Đăng nhập thất bại",
+        error:
+          error.response?.data?.value?.message ||
+          error.response?.data?.error?.message ||
+          "Đăng nhập thất bại",
       };
     }
   }
 
-  // Logout
   async logout(): Promise<void> {
     try {
       const accessToken = await this.getAccessToken();
 
       if (accessToken) {
-        // Call logout API
         await axiosInstance.post(
-          "/auth/logout",
+          "/api/auth/logout",
           {},
           {
             headers: { Authorization: `Bearer ${accessToken}` },
@@ -58,12 +71,10 @@ class AuthService {
     } catch (error) {
       console.error("Logout API error:", error);
     } finally {
-      // Clear storage regardless of API result
       await this.clearStorage();
     }
   }
 
-  // Refresh token
   async refreshToken(): Promise<boolean> {
     try {
       const refreshToken = await this.getRefreshToken();
@@ -71,7 +82,7 @@ class AuthService {
       if (!refreshToken) return false;
 
       const response = await axiosInstance.post<RefreshTokenResponse>(
-        "/auth/refresh-token",
+        "/api/auth/refresh-token",
         {
           refreshToken,
         }
@@ -91,7 +102,6 @@ class AuthService {
     }
   }
 
-  // Get current user from storage
   async getCurrentUser(): Promise<User | null> {
     try {
       const userData = await AsyncStorage.getItem(STORAGE_KEYS.USER_DATA);
@@ -102,7 +112,6 @@ class AuthService {
     }
   }
 
-  // Check if user is authenticated
   async isAuthenticated(): Promise<boolean> {
     try {
       const accessToken = await this.getAccessToken();
@@ -114,7 +123,6 @@ class AuthService {
     }
   }
 
-  // Private methods
   private async saveTokens(
     accessToken: string,
     refreshToken: string
@@ -135,7 +143,6 @@ class AuthService {
     return await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
   }
 
-  // Update profile
   async updateProfile(profileData: {
     fullName?: string;
     phoneNumber?: string;
@@ -144,12 +151,11 @@ class AuthService {
     gender?: boolean;
   }): Promise<{ success: boolean; user?: User; error?: string }> {
     try {
-      const response = await axiosInstance.put("/me", profileData);
+      const response = await axiosInstance.put("/api/me", profileData);
 
       if (response.data.isSuccess) {
         const updatedUser = response.data.value.data;
 
-        // Update stored user data
         await this.saveUser(updatedUser);
 
         return { success: true, user: updatedUser };
@@ -166,19 +172,17 @@ class AuthService {
     }
   }
 
-  // Get current user profile
   async getCurrentProfile(): Promise<{
     success: boolean;
     user?: User;
     error?: string;
   }> {
     try {
-      const response = await axiosInstance.get("/me");
+      const response = await axiosInstance.get("/api/me");
 
       if (response.data.isSuccess) {
         const user = response.data.value.data;
 
-        // Update stored user data
         await this.saveUser(user);
 
         return { success: true, user };

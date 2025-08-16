@@ -19,39 +19,7 @@ import {
   hasTrackableItems
 } from '../../constants/orderStatus';
 import { ordersApi } from '../../services/api/orders';
-
-// Types for Order data
-interface OrderDetail {
-  id: string;
-  productId: string;
-  productName: string;
-  productImages: string[];
-  quantity: number;
-  unitPrice: number;
-  totalPrice: number;
-  status: string;
-}
-
-interface OrderPayment {
-  id: string;
-  amount: number;
-  netAmount: number;
-  method: string;
-  status: string;
-  paidAt: string;
-}
-
-interface Order {
-  id: string;
-  status: string;
-  totalAmount: number;
-  placedAt: string;
-  completedAt?: string;
-  details: OrderDetail[];
-  payment: OrderPayment;
-  finalAmount: number;
-  totalShippingFee: number;
-}
+import { Order } from '../../services/api/types/orders';
 
 
 
@@ -71,7 +39,9 @@ export default function OrderDetailScreen() {
     try {
       const response = await ordersApi.getOrderById(id as string);
       if (response.isSuccess && response.data) {
-        setOrder(response.data);
+        // Handle response structure - should have 'result' property
+        const orderData = response.data.result || response.data;
+        setOrder(orderData);
       } else {
         Alert.alert('Lỗi', 'Không thể tải chi tiết đơn hàng');
       }
@@ -207,15 +177,17 @@ export default function OrderDetailScreen() {
 
           {Array.isArray(order.details) && order.details.length > 0 ? order.details.map((detail) => (
             <View key={detail.id} className="flex-row mb-4">
-              {detail.productImages && detail.productImages.length > 0 && (
+              {/* Show BlindBox image if available, otherwise product image */}
+              {(detail.blindBoxImage || (detail.productImages && detail.productImages.length > 0)) && (
                 <Image
-                  source={{ uri: detail.productImages[0] }}
+                  source={{ uri: detail.blindBoxImage || detail.productImages[0] }}
                   className="w-16 h-16 rounded-lg mr-3"
                 />
               )}
               <View className="flex-1">
                 <Text className="text-gray-900 text-sm" numberOfLines={2}>
-                  {detail.productName}
+                  {/* Show BlindBox name if available, otherwise product name */}
+                  {detail.blindBoxName || detail.productName}
                 </Text>
                 <View className="flex-row items-center justify-between mt-2">
                   <Text className="text-gray-900 font-medium">
@@ -232,10 +204,10 @@ export default function OrderDetailScreen() {
           {/* Price Details */}
           <View className="border-t border-gray-200 pt-4">
             <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-gray-900 font-bold">Thành tiền:</Text>
+              <Text className="text-gray-900 font-bold">Tổng thanh toán:</Text>
               <View className="flex-row items-center">
                 <Text className="text-gray-900 font-bold text-lg">
-                  {formatCurrency(order.totalAmount + order.totalShippingFee)}
+                  {formatCurrency(order.finalAmount + order.totalShippingFee - (order.details?.[0]?.detailDiscountPromotion || 0))}
                 </Text>
                 <TouchableOpacity onPress={handleTogglePrice} className="ml-2">
                   <Ionicons
@@ -250,24 +222,28 @@ export default function OrderDetailScreen() {
             {isDetailVisible && (
               <View className="space-y-2">
                 <View className="flex-row justify-between">
-                  <Text className="text-gray-600">Tổng tiền hàng</Text>
-                  <Text className="text-gray-900">{formatCurrency(order.totalAmount)}</Text>
+                  <Text className="text-gray-600">Tiền sản phẩm</Text>
+                  <Text className="text-gray-900">{formatCurrency(order.finalAmount)}</Text>
                 </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-600">Phí vận chuyển</Text>
-                  <Text className="text-gray-900">{formatCurrency(order.totalShippingFee)}</Text>
-                </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-600">Giảm giá</Text>
-                  <Text className="text-red-500">
-                    -{formatCurrency((order.payment.amount - order.payment.netAmount))}
-                  </Text>
-                </View>
+                {order.totalShippingFee > 0 && (
+                  <View className="flex-row justify-between">
+                    <Text className="text-gray-600">Phí vận chuyển</Text>
+                    <Text className="text-gray-900">{formatCurrency(order.totalShippingFee)}</Text>
+                  </View>
+                )}
+                {order.details?.[0]?.detailDiscountPromotion && (
+                  <View className="flex-row justify-between">
+                    <Text className="text-gray-600">Khuyến mãi</Text>
+                    <Text className="text-green-600">
+                      -{formatCurrency(order.details[0].detailDiscountPromotion)}
+                    </Text>
+                  </View>
+                )}
                 <View className="border-t border-gray-200 pt-2">
                   <View className="flex-row justify-between">
-                    <Text className="text-gray-900 font-bold">Thành tiền</Text>
+                    <Text className="text-gray-900 font-bold">Tổng thanh toán</Text>
                     <Text className="text-gray-900 font-bold">
-                      {formatCurrency(order.totalAmount + order.totalShippingFee)}
+                      {formatCurrency(order.finalAmount + order.totalShippingFee - (order.details?.[0]?.detailDiscountPromotion || 0))}
                     </Text>
                   </View>
                 </View>
@@ -283,35 +259,16 @@ export default function OrderDetailScreen() {
             <Text className="text-gray-600">Phương thức</Text>
             <Text className="text-gray-900">{order.payment.method}</Text>
           </View>
-          <View className="flex-row justify-between mb-2">
+          {/* <View className="flex-row justify-between mb-2">
             <Text className="text-gray-600">Trạng thái</Text>
             <Text className="text-green-600">{order.payment.status}</Text>
-          </View>
+          </View> */}
           {order.payment.paidAt && (
             <View className="flex-row justify-between">
               <Text className="text-gray-600">Thời gian thanh toán</Text>
               <Text className="text-gray-900">{formatDate(order.payment.paidAt)}</Text>
             </View>
           )}
-        </View>
-
-        {/* Action Buttons */}
-        <View className="bg-white mx-4 mt-4 mb-6 rounded-lg p-4">
-          <View className="flex-row space-x-3">
-            <TouchableOpacity
-              className="flex-1 bg-gray-100 py-3 rounded-lg"
-              onPress={handleReturnRequest}
-            >
-              <Text className="text-center text-gray-700 font-medium">Trả hàng/Hoàn tiền</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-1 bg-orange-500 py-3 rounded-lg"
-              onPress={handleConfirmReceived}
-            >
-              <Text className="text-center text-white font-medium">Đã nhận hàng</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </ScrollView>
     </View>

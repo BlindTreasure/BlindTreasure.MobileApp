@@ -35,7 +35,7 @@ export default function HomeScreen() {
     setError(null);
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/blind-boxes`, {
+      const response = await axios.get(`${API_BASE_URL}/api/blind-boxes`, {
         params: {
           status: 'Approved',
           ...params,
@@ -59,7 +59,7 @@ export default function HomeScreen() {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/products`, {
+      const response = await axios.get(`${API_BASE_URL}/api/products`, {
         params: { status: 'Approved' },
       });
 

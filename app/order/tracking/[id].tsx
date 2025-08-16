@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ordersApi } from '../../../services/api/orders';
-
+import { InventoryItem, Order, OrderDetail } from '../../../services/api/types/orders';
 
 // Types for tracking data
 interface TrackingTimeline {
@@ -23,34 +23,13 @@ interface TrackingTimeline {
   isDelivered?: boolean;
 }
 
-interface OrderDetailData {
-  id: string;
-  productId: string;
-  logs: string;
-  productName: string;
-  productImages: string[];
-  quantity: number;
-  unitPrice: number;
-  totalPrice: number;
-  status: string;
-  shipments: Array<{
-    id: string;
-    orderCode: string;
-    totalFee: number;
-    provider: string;
-    trackingNumber: string;
-    shippedAt: string;
-    estimatedDelivery: string;
-    status: string;
-  }>;
-}
-
 export default function TrackingScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [orderDetail, setOrderDetail] = useState<OrderDetailData | null>(null);
-  const [parentOrder, setParentOrder] = useState<any>(null);
+  const [orderDetail, setOrderDetail] = useState<OrderDetail | null>(null);
+  const [parentOrder, setParentOrder] = useState<Order | null>(null);
+  const [inventoryItem, setInventoryItem] = useState<InventoryItem | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     fetchTrackingData();
@@ -58,18 +37,26 @@ export default function TrackingScreen() {
 
   const fetchTrackingData = async () => {
     try {
-      // Get order detail info
-      const detailResponse = await ordersApi.getTrackingInfo(id as string);
-      if (detailResponse.isSuccess && detailResponse.data) {
-        setOrderDetail(detailResponse.data);
+      // Try to get inventory item first (for DELIVERED/DELIVERING items)
+      const inventoryResponse = await ordersApi.getInventoryItemById(id as string);
 
-        // Get parent order info
-        const orderResponse = await ordersApi.getOrderFromDetail(id as string);
-        if (orderResponse.isSuccess && orderResponse.data) {
-          setParentOrder(orderResponse.data);
-        }
+      if (inventoryResponse.isSuccess && inventoryResponse.data) {
+        const inventoryData = inventoryResponse.data.result || inventoryResponse.data;
+        setInventoryItem(inventoryData);
       } else {
-        Alert.alert('Lỗi', 'Không thể tải thông tin tracking');
+        // Fallback to order detail info
+        const detailResponse = await ordersApi.getTrackingInfo(id as string);
+        if (detailResponse.isSuccess && detailResponse.data) {
+          setOrderDetail(detailResponse.data);
+
+          // Get parent order info
+          const orderResponse = await ordersApi.getOrderFromDetail(id as string);
+          if (orderResponse.isSuccess && orderResponse.data) {
+            setParentOrder(orderResponse.data);
+          }
+        } else {
+          Alert.alert('Lỗi', 'Không thể tải thông tin tracking');
+        }
       }
     } catch (error) {
       Alert.alert('Lỗi', 'Có lỗi xảy ra khi tải thông tin tracking');
@@ -79,7 +66,9 @@ export default function TrackingScreen() {
   };
 
   const handleOrderInfoPress = () => {
-    if (parentOrder) {
+    if (inventoryItem && inventoryItem.orderId) {
+      router.push(`/order/${inventoryItem.orderId}`);
+    } else if (parentOrder) {
       router.push(`/order/${parentOrder.id}`);
     } else {
       Alert.alert('Thông báo', 'Không tìm thấy thông tin đơn hàng');
@@ -90,6 +79,15 @@ export default function TrackingScreen() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('vi-VN');
+  };
+
+  const formatDateTime = (dateString: string) => {
+    if (!dateString) return 'Chưa cập nhật';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const translateStatus = (status: string): string => {
@@ -118,45 +116,128 @@ export default function TrackingScreen() {
     return providerMap[provider] || provider;
   };
 
-  const translateLogStatus = (logText: string): string => {
-    const translations: { [key: string]: string } = {
-      'Created': 'Đã tạo đơn hàng',
-      'Status changed': 'Thay đổi trạng thái',
-      'Available': 'Sẵn sàng',
-      'Delivering': 'Đang giao hàng',
-      'Shipment requested': 'Yêu cầu vận chuyển',
-      'InventoryItem': 'Sản phẩm'
-    };
 
-    let translatedText = logText;
-    Object.entries(translations).forEach(([en, vi]) => {
-      translatedText = translatedText.replace(new RegExp(en, 'gi'), vi);
-    });
 
-    return translatedText;
-  };
+  // Create timeline from actual order timestamps
+  const createOrderTimeline = (): TrackingTimeline[] => {
+    // Handle inventory items
+    if (inventoryItem) {
+      const timeline: TrackingTimeline[] = [];
+      // Handle both shipments array and single shipment object
+      const shipment = inventoryItem.shipments?.[0] || (inventoryItem as any).shipment;
+      const isDelivered = inventoryItem.status === 'Delivered';
+      const isCurrentlyDelivering = inventoryItem.status === 'Delivering';
 
-  const parseLogsToTimeline = (logs: string): TrackingTimeline[] => {
-    const lines = logs.split('\n').filter(line => line.trim());
-    return lines.map((line) => {
-      const match = line.match(/\[(.*?)\] (.*)/);
-      if (match) {
-        const [, timestamp, status] = match;
-        const translatedStatus = translateLogStatus(status);
-        return {
-          time: new Date(timestamp).toLocaleDateString('vi-VN'),
-          status: translatedStatus,
-          isCompleted: true,
-          isDelivered: translatedStatus.toLowerCase().includes('giao hàng thành công')
-        };
+
+
+      // 1. Tạo đơn trao đổi (createdAt)
+      if (inventoryItem.createdAt) {
+        timeline.push({
+          time: formatDateTime(inventoryItem.createdAt),
+          status: 'Đơn trao đổi đã được tạo',
+          isCompleted: true
+        });
       }
-      return {
-        time: 'N/A',
-        status: translateLogStatus(line),
+
+      // 2. Lấy hàng (estimatedPickupTime)
+      if (shipment?.estimatedPickupTime) {
+        const isPickedUp = !!shipment.pickedUpAt;
+        const isProcessingOrLater = ['PROCESSING', 'SHIPPING', 'DELIVERING'].includes(shipment.status);
+
+        timeline.push({
+          time: formatDateTime(shipment.estimatedPickupTime),
+          status: isPickedUp ? 'Đã lấy hàng' : (isProcessingOrLater ? 'Đã lấy hàng' : 'Dự kiến lấy hàng'),
+          isCompleted: isPickedUp || isProcessingOrLater || isCurrentlyDelivering || isDelivered
+        });
+      }
+
+      // 3. Vận chuyển (shippedAt hoặc status SHIPPING/DELIVERING)
+      if (shipment?.shippedAt || ['SHIPPING', 'DELIVERING'].includes(shipment?.status || '')) {
+        const shippingTime = shipment.shippedAt || shipment.estimatedDelivery;
+        if (shippingTime) {
+          timeline.push({
+            time: formatDateTime(shippingTime),
+            status: shipment.shippedAt ? 'Đang vận chuyển' : 'Chuẩn bị vận chuyển',
+            isCompleted: !!shipment.shippedAt || ['SHIPPING', 'DELIVERING'].includes(shipment?.status || '') || isCurrentlyDelivering || isDelivered
+          });
+        }
+      }
+
+      // 4. Đang giao hàng (estimatedDelivery)
+      if (shipment?.estimatedDelivery) {
+        timeline.push({
+          time: formatDateTime(shipment.estimatedDelivery),
+          status: isCurrentlyDelivering ? 'Đang giao hàng' : 'Dự kiến giao hàng',
+          isCompleted: isCurrentlyDelivering || isDelivered
+        });
+      }
+
+      // 5. Đã giao hàng thành công
+      if (isDelivered) {
+        // Use the latest available timestamp for delivery
+        const deliveryTime = shipment?.pickedUpAt || shipment?.shippedAt || inventoryItem.updatedAt;
+        if (deliveryTime) {
+          timeline.push({
+            time: formatDateTime(deliveryTime),
+            status: 'Đã giao hàng thành công',
+            isCompleted: true,
+            isDelivered: true
+          });
+        }
+      }
+
+      return timeline;
+    }
+
+    // Handle order details (fallback)
+    if (!parentOrder || !orderDetail) return [];
+
+    const timeline: TrackingTimeline[] = [];
+    const shipment = orderDetail.shipments?.[0];
+    const isDelivered = orderDetail.status === 'DELIVERED';
+    const isCurrentlyDelivering = orderDetail.status === 'DELIVERING';
+
+    // 1. Đặt hàng thành công (completedAt) - luôn hoàn thành
+    if (parentOrder.completedAt) {
+      timeline.push({
+        time: formatDateTime(parentOrder.completedAt),
+        status: 'Đơn hàng đã được đặt thành công',
         isCompleted: true
-      };
-    });
+      });
+    }
+
+    // // 2. Dự kiến lấy hàng (estimatedPickupTime) - hoàn thành nếu đang giao hoặc đã giao
+    // if (shipment?.estimatedPickupTime && !isDelivered) {
+    //   timeline.push({
+    //     time: formatDateTime(shipment.estimatedPickupTime),
+    //     status: 'Dự kiến lấy hàng',
+    //     isCompleted: isCurrentlyDelivering || isDelivered // Hoàn thành nếu đang giao hoặc đã giao
+    //   });
+    // }
+
+    // 3. Dự kiến giao hàng (estimatedDelivery) - hoàn thành nếu đang giao
+    if (shipment?.estimatedDelivery && !isDelivered) {
+      timeline.push({
+        time: formatDateTime(shipment.estimatedDelivery),
+        status: isCurrentlyDelivering ? 'Đang trong quá trình giao hàng' : 'Dự kiến giao hàng',
+        isCompleted: isCurrentlyDelivering
+      });
+    }
+
+    // 4. Đã giao hàng thành công (shippedAt) - CHỈ hiển thị nếu đã giao
+    if (isDelivered && shipment?.shippedAt) {
+      timeline.push({
+        time: formatDateTime(shipment.shippedAt),
+        status: 'Đã giao hàng thành công',
+        isCompleted: true,
+        isDelivered: true
+      });
+    }
+
+    return timeline;
   };
+
+
 
   if (loading) {
     return (
@@ -167,7 +248,7 @@ export default function TrackingScreen() {
     );
   }
 
-  if (!orderDetail) {
+  if (!orderDetail && !inventoryItem) {
     return (
       <View className="flex-1 justify-center items-center bg-gray-50">
         <Text className="text-gray-500">Không tìm thấy thông tin tracking</Text>
@@ -181,8 +262,10 @@ export default function TrackingScreen() {
     );
   }
 
-  const timeline = parseLogsToTimeline(orderDetail.logs);
-  const shipment = orderDetail.shipments[0]; // Get first shipment
+  // Use order timestamps for timeline instead of logs
+  const timeline = createOrderTimeline();
+  const currentItem = inventoryItem || orderDetail;
+  const shipment = currentItem?.shipments?.[0]; // Get first shipment
 
   // Define 3 tracking states
   const trackingStates = [
@@ -193,10 +276,10 @@ export default function TrackingScreen() {
 
   // Determine current progress based on order status
   const getCurrentProgress = () => {
-    const status = orderDetail.status;
-    if (status === 'DELIVERED') {
+    const status = currentItem?.status;
+    if (status === 'DELIVERED' || status === 'Delivered') {
       return 3; // All 3 states completed
-    } else if (status === 'DELIVERING') {
+    } else if (status === 'DELIVERING' || status === 'Delivering') {
       return 2; // Only first 2 states completed
     } else {
       return 1; // Only first state completed
@@ -218,7 +301,9 @@ export default function TrackingScreen() {
             <TouchableOpacity onPress={() => router.back()} className="mr-3">
               <Ionicons name="arrow-back" size={24} color="#374151" />
             </TouchableOpacity>
-            <Text className="text-lg font-medium text-gray-900">{translateStatus(orderDetail.status)}</Text>
+            <Text className="text-lg font-medium text-gray-900">
+              {inventoryItem ? 'Theo dõi hàng' : translateStatus(currentItem?.status || '')}
+            </Text>
           </View>
         </View>
       </View>
@@ -227,7 +312,11 @@ export default function TrackingScreen() {
         {/* Delivery Status */}
         <View className="bg-white mx-4 mt-4 rounded-lg p-4">
           <Text className="text-teal-600 font-medium text-base mb-4">
-            {shipment ? `Dự kiến giao: ${formatDate(shipment.estimatedDelivery)}` : 'Đang xử lý'}
+            {inventoryItem ? (
+              shipment?.estimatedDelivery ? `Dự kiến giao: ${formatDate(shipment.estimatedDelivery)}` : 'Đang xử lý trao đổi'
+            ) : (
+              shipment ? `Dự kiến giao: ${formatDate(shipment.estimatedDelivery)}` : 'Đang xử lý'
+            )}
           </Text>
 
           {/* Progress Bar */}
@@ -271,23 +360,59 @@ export default function TrackingScreen() {
         <View className="bg-white mx-4 mt-4 rounded-lg p-4">
           <View className="flex-row items-center mb-4">
             <Image
-              source={{ uri: orderDetail.productImages[0] || 'https://via.placeholder.com/60x60' }}
+              source={{
+                uri: inventoryItem ?
+                  ((inventoryItem as InventoryItem).product?.imageUrls?.[0] || inventoryItem.blindBoxImage || inventoryItem.productImages?.[0]) :
+                  (currentItem?.blindBoxImage || currentItem?.productImages?.[0]) || 'https://via.placeholder.com/60x60'
+              }}
               className="w-16 h-16 rounded-lg mr-3"
             />
             <View className="flex-1">
-              <Text className="text-gray-900 font-medium text-base">{orderDetail.productName}</Text>
-              <Text className="text-gray-500 text-sm">Số lượng: {orderDetail.quantity}</Text>
-              <Text className="text-orange-500 font-semibold">
-                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(orderDetail.totalPrice)}
+              <Text className="text-gray-900 font-medium text-base">
+                {inventoryItem ?
+                  ((inventoryItem as InventoryItem).product?.name || inventoryItem.blindBoxName || inventoryItem.productName) :
+                  (currentItem?.blindBoxName || currentItem?.productName)
+                }
               </Text>
+              <Text className="text-gray-500 text-sm">Số lượng: {currentItem?.quantity}</Text>
+              {inventoryItem ? (
+                // For inventory items (exchange orders), show "Đơn trao đổi" instead of price
+                <Text className="text-blue-600 font-semibold">Đơn trao đổi</Text>
+              ) : (
+                <Text className="text-orange-500 font-semibold">
+                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(currentItem?.totalPrice || 0)}
+                </Text>
+              )}
             </View>
-            <TouchableOpacity
-              className="px-3 py-1 border border-gray-200 rounded-md"
-              onPress={handleOrderInfoPress}
-            >
-              <Text className="text-gray-700 text-sm">Thông tin đơn hàng</Text>
-            </TouchableOpacity>
+            {/* Only show "Thông tin đơn hàng" button for regular orders, not inventory items */}
+            {!inventoryItem && (
+              <TouchableOpacity
+                className="px-3 py-1 border border-gray-200 rounded-md"
+                onPress={handleOrderInfoPress}
+              >
+                <Text className="text-gray-700 text-sm">Thông tin đơn hàng</Text>
+              </TouchableOpacity>
+            )}
           </View>
+
+          {/* Show shipping fee for inventory items */}
+          {inventoryItem && (
+            (() => {
+              const shipment = inventoryItem.shipments?.[0] || (inventoryItem as any).shipment;
+              const shippingFee = shipment?.shippingFee || shipment?.totalFee;
+
+              return shippingFee ? (
+                <View className="border-t border-gray-100 pt-3 mt-3">
+                  <View className="flex-row justify-between items-center">
+                    <Text className="text-gray-600 text-sm">Phí ship:</Text>
+                    <Text className="text-blue-600 font-semibold">
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(shippingFee)}
+                    </Text>
+                  </View>
+                </View>
+              ) : null;
+            })()
+          )}
         </View>
 
         {/* Shipping Info */}
@@ -340,11 +465,6 @@ export default function TrackingScreen() {
                   <Text className={`text-sm ${item.isDelivered ? 'text-teal-600 font-medium' : 'text-gray-700'}`}>
                     {item.status}
                   </Text>
-                  {item.isDelivered && (
-                    <TouchableOpacity>
-                      <Text className="text-blue-500 text-sm">Xem hình ảnh giao hàng</Text>
-                    </TouchableOpacity>
-                  )}
                 </View>
               </View>
             ))}

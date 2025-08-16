@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Image,
   RefreshControl,
+  ScrollView,
   StatusBar,
   Text,
   TouchableOpacity,
@@ -14,46 +16,17 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ORDER_STATUS_COLORS, ORDER_STATUS_MAP } from '../../constants/orderStatus';
 import { ordersApi } from '../../services/api/orders';
-
-// Temporary types until we fix the import
-interface Order {
-  id: string;
-  status: string;
-  totalAmount: number;
-  placedAt: string;
-  completedAt?: string;
-  details: OrderDetail[];
-  payment: OrderPayment;
-  finalAmount: number;
-  totalShippingFee: number;
-}
-
-interface OrderDetail {
-  id: string;
-  productId: string;
-  productName: string;
-  productImages: string[];
-  quantity: number;
-  unitPrice: number;
-  totalPrice: number;
-  status: string;
-}
-
-interface OrderPayment {
-  id: string;
-  amount: number;
-  method: string;
-  status: string;
-  paidAt: string;
-}
+import { InventoryItem, Order, OrderDetail } from '../../services/api/types/orders';
 
 
 
 const orderTabs = [
   { key: 'ALL', label: 'Tất cả' },
-  { key: 'PENDING', label: 'Chờ thanh toán' },
-  { key: 'DELIVERING', label: 'Đang giao hàng' },
+  { key: 'PENDING', label: 'Chờ xác nhận' },
+  { key: 'DELIVERING', label: 'Chờ giao hàng' },
+  { key: 'DELIVERED', label: 'Hoàn thành' },
   { key: 'CANCELLED', label: 'Đã hủy' },
+  { key: 'INVENTORY', label: 'Giao hàng túi đồ' },
 ];
 
 export default function OrdersScreen() {
@@ -64,6 +37,8 @@ export default function OrdersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('ALL');
   const [orderDetails, setOrderDetails] = useState<OrderDetail[]>([]);
+  const [deliveredOrders, setDeliveredOrders] = useState<OrderDetail[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
 
   const fetchOrders = async () => {
     try {
@@ -72,12 +47,10 @@ export default function OrdersScreen() {
       if (response.isSuccess && response.data) {
         const ordersData = response.data;
 
-        // Handle different response structures
-        let ordersList = [];
+        // Handle response structure - should have 'result' array
+        let ordersList: Order[] = [];
         if (Array.isArray(ordersData)) {
           ordersList = ordersData;
-        } else if (ordersData.orders && Array.isArray(ordersData.orders)) {
-          ordersList = ordersData.orders;
         } else if (ordersData.result && Array.isArray(ordersData.result)) {
           ordersList = ordersData.result;
         }
@@ -100,8 +73,8 @@ export default function OrdersScreen() {
       if (response.isSuccess && response.data) {
         const detailsData = response.data;
 
-        // Handle response structure
-        let detailsList = [];
+        // Handle response structure - should have 'result' array
+        let detailsList: OrderDetail[] = [];
         if (Array.isArray(detailsData)) {
           detailsList = detailsData;
         } else if (detailsData.result && Array.isArray(detailsData.result)) {
@@ -117,15 +90,67 @@ export default function OrdersScreen() {
     }
   };
 
+  const fetchDeliveredOrders = async () => {
+    try {
+      const response = await ordersApi.getDeliveredOrders(1, 50);
+
+      if (response.isSuccess && response.data) {
+        const deliveredData = response.data;
+
+        let deliveredList: OrderDetail[] = [];
+        if (Array.isArray(deliveredData)) {
+          deliveredList = deliveredData;
+        } else if (deliveredData.result && Array.isArray(deliveredData.result)) {
+          deliveredList = deliveredData.result;
+        }
+
+        setDeliveredOrders(deliveredList);
+      } else {
+        setDeliveredOrders([]);
+      }
+    } catch (error) {
+      setDeliveredOrders([]);
+    }
+  };
+
+  const fetchInventoryItems = async () => {
+    try {
+      const response = await ordersApi.getInventoryItems(1, 50);
+
+      if (response.isSuccess && response.data) {
+        const inventoryData = response.data;
+        let inventoryList: InventoryItem[] = [];
+        if (Array.isArray(inventoryData)) {
+          inventoryList = inventoryData;
+        } else if (inventoryData.result && Array.isArray(inventoryData.result)) {
+          inventoryList = inventoryData.result;
+        }
+
+        setInventoryItems(inventoryList);
+      } else {
+        setInventoryItems([]);
+      }
+    } catch (error) {
+      setInventoryItems([]);
+    }
+  };
+
   const fetchData = async () => {
     setLoading(true);
-    await Promise.all([fetchOrders(), fetchOrderDetails()]);
+    await Promise.all([fetchOrders(), fetchOrderDetails(), fetchDeliveredOrders(), fetchInventoryItems()]);
     setLoading(false);
   };
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -135,15 +160,26 @@ export default function OrdersScreen() {
 
   // Get filtered data based on active tab
   const getFilteredData = () => {
-    if (activeTab === 'DELIVERING') {
+    if (activeTab === 'INVENTORY') {
+      // For "Giao hàng túi đồ", use inventory items with DELIVERED and DELIVERING status and null orderDetailId
+      const result = Array.isArray(inventoryItems) ? inventoryItems : [];
+      return result;
+    } else if (activeTab === 'DELIVERING') {
       // For "Đang giao hàng", use orderDetails from /orders/order-details
-      return Array.isArray(orderDetails) ? orderDetails.filter(detail => detail.status === 'DELIVERING') : [];
+      const result = Array.isArray(orderDetails) ? orderDetails.filter(detail => detail.status === 'DELIVERING') : [];
+      return result;
+    } else if (activeTab === 'DELIVERED') {
+      // For "Đã giao", use deliveredOrders from /orders/order-details with DELIVERED status
+      const result = Array.isArray(deliveredOrders) ? deliveredOrders : [];
+      return result;
     } else if (activeTab === 'ALL') {
       // For "Tất cả", combine all orders
-      return Array.isArray(orders) ? orders : [];
+      const result = Array.isArray(orders) ? orders : [];
+      return result;
     } else {
       // For other tabs, filter orders by status
-      return Array.isArray(orders) ? orders.filter(order => order.status === activeTab) : [];
+      const result = Array.isArray(orders) ? orders.filter(order => order.status === activeTab) : [];
+      return result;
     }
   };
 
@@ -161,24 +197,39 @@ export default function OrdersScreen() {
   };
 
   const handleOrderPress = (item: any) => {
-    if (activeTab === 'DELIVERING') {
+    if (activeTab === 'INVENTORY') {
+      // For inventory items, navigate to tracking with shipment info
+      router.push(`/order/tracking/${item.id}`);
+    } else if (activeTab === 'DELIVERING') {
       // For order details, navigate to tracking
       router.push(`/order/tracking/${item.id}`);
+    } else if (activeTab === 'DELIVERED') {
+      // For delivered orders, navigate to delivered order view
+      router.push(`/order/delivered/${item.id}`);
     } else {
       // For orders, navigate based on status
       if (item.status === 'RETURNED') {
         router.push(`/order/return/${item.id}`);
       } else if (item.status === 'CANCELLED') {
-        router.push(`/order/refund/${item.id}`);
+        // For cancelled orders, just show order details (payment cancellation, not refund)
+        router.push(`/order/${item.id}`);
       } else {
         router.push(`/order/${item.id}`);
       }
     }
   };
 
-  const renderItem = ({ item }: { item: any }) => {
-    // Check if this is an OrderDetail (from /orders/order-details) or Order (from /orders)
-    const isOrderDetail = activeTab === 'DELIVERING';
+  const renderItem = ({ item }: { item: Order | OrderDetail | InventoryItem }) => {
+    // Check if this is an InventoryItem (from /api/inventory-items)
+    const isInventoryItem = activeTab === 'INVENTORY';
+    const isOrderDetail = activeTab === 'DELIVERING' || activeTab === 'DELIVERED';
+
+    // Calculate total payment for orders: finalAmount + totalShippingFee - discount - promotion
+    const calculateTotalPayment = (order: Order): number => {
+      const paymentDiscount = order.payment?.discountRate || 0;
+      const promotionDiscount = order.details?.[0]?.detailDiscountPromotion || 0;
+      return order.finalAmount + order.totalShippingFee - paymentDiscount - promotionDiscount;
+    };
 
     return (
       <TouchableOpacity
@@ -188,10 +239,18 @@ export default function OrdersScreen() {
         <View className="flex-row justify-between items-start mb-3">
           <View className="flex-1">
             <Text className="text-gray-900 font-semibold text-base">
-              {isOrderDetail ? `#${item.id.slice(-8).toUpperCase()}` : `#${item.id.slice(-8).toUpperCase()}`}
+              #{isInventoryItem && (item as InventoryItem).orderId
+                ? (item as InventoryItem).orderId.slice(-8).toUpperCase()
+                : item.id.slice(-8).toUpperCase()
+              }
             </Text>
             <Text className="text-gray-500 text-sm mt-1">
-              {isOrderDetail ? 'Chi tiết đơn hàng' : formatDate(item.placedAt)}
+              {isInventoryItem ?
+                'Kho hàng'
+                : isOrderDetail ?
+                  (activeTab === 'DELIVERED' ? 'Đơn hàng đã giao' : 'Chi tiết đơn hàng')
+                  : formatDate((item as Order).placedAt)
+              }
             </Text>
           </View>
           <View className="items-end">
@@ -204,45 +263,88 @@ export default function OrdersScreen() {
               </Text>
             </View>
             <Text className="text-gray-900 font-bold text-lg mt-2">
-              {formatCurrency(isOrderDetail ? item.totalPrice : item.totalAmount)}
+              {isInventoryItem ? (
+                // For inventory items (exchange orders), show "Trao đổi" instead of price
+                <Text className="text-blue-600 font-semibold">Trao đổi</Text>
+              ) : (
+                formatCurrency(isOrderDetail
+                  ? (item as OrderDetail).totalPrice
+                  : calculateTotalPayment(item as Order)
+                )
+              )}
             </Text>
           </View>
         </View>
 
         <View className="border-t border-gray-100 pt-3">
           <Text className="text-gray-600 text-sm mb-2">Sản phẩm:</Text>
-          {isOrderDetail ? (
-            // Render single OrderDetail
+          {isInventoryItem ? (
+            // Render single InventoryItem
             <View className="flex-row items-center mb-1">
-              {item.productImages && item.productImages.length > 0 && (
+              {/* Show product image from product.imageUrls or fallback to blindBox/productImages */}
+              {((item as InventoryItem).product?.imageUrls?.[0] || (item as InventoryItem).blindBoxImage || (item as InventoryItem).productImages?.[0]) && (
                 <Image
-                  source={{ uri: item.productImages[0] }}
+                  source={{
+                    uri: (item as InventoryItem).product?.imageUrls?.[0] ||
+                      (item as InventoryItem).blindBoxImage ||
+                      (item as InventoryItem).productImages?.[0]
+                  }}
                   className="w-8 h-8 rounded mr-2"
                 />
               )}
               <Text className="text-gray-800 text-sm flex-1" numberOfLines={1}>
-                {item.productName} x{item.quantity}
+                {/* Show product name from product.name or fallback to blindBox/productName */}
+                {(item as InventoryItem).product?.name || (item as InventoryItem).blindBoxName || (item as InventoryItem).productName} x{(item as InventoryItem).quantity}
               </Text>
+              {/* Show tracking info if available */}
+              {(item as InventoryItem).shipments?.[0] && (
+                <Text className="text-blue-500 text-xs mt-1">
+                  Mã vận đơn: {(item as InventoryItem).shipments?.[0]?.trackingNumber}
+                </Text>
+              )}
+            </View>
+          ) : isOrderDetail ? (
+            // Render single OrderDetail
+            <View className="flex-row items-center mb-1">
+              {/* Show BlindBox image if available, otherwise product image */}
+              {((item as OrderDetail).blindBoxImage || ((item as OrderDetail).productImages && (item as OrderDetail).productImages.length > 0)) && (
+                <Image
+                  source={{ uri: (item as OrderDetail).blindBoxImage || (item as OrderDetail).productImages[0] }}
+                  className="w-8 h-8 rounded mr-2"
+                />
+              )}
+              <Text className="text-gray-800 text-sm flex-1" numberOfLines={1}>
+                {/* Show BlindBox name if available, otherwise product name */}
+                {(item as OrderDetail).blindBoxName || (item as OrderDetail).productName} x{(item as OrderDetail).quantity}
+              </Text>
+              {/* Show tracking info if available */}
+              {(item as OrderDetail).shipments?.[0] && (
+                <Text className="text-blue-500 text-xs mt-1">
+                  Mã vận đơn: {(item as OrderDetail).shipments[0].trackingNumber}
+                </Text>
+              )}
             </View>
           ) : (
             // Render Order with multiple details
             <>
-              {item.details && item.details.slice(0, 2).map((detail: any) => (
+              {(item as Order).details && (item as Order).details.slice(0, 2).map((detail: OrderDetail) => (
                 <View key={detail.id} className="flex-row items-center mb-1">
-                  {detail.productImages && detail.productImages.length > 0 && (
+                  {/* Show BlindBox image if available, otherwise product image */}
+                  {(detail.blindBoxImage || (detail.productImages && detail.productImages.length > 0)) && (
                     <Image
-                      source={{ uri: detail.productImages[0] }}
+                      source={{ uri: detail.blindBoxImage || detail.productImages[0] }}
                       className="w-8 h-8 rounded mr-2"
                     />
                   )}
                   <Text className="text-gray-800 text-sm flex-1" numberOfLines={1}>
-                    {detail.productName} x{detail.quantity}
+                    {/* Show BlindBox name if available, otherwise product name */}
+                    {detail.blindBoxName || detail.productName} x{detail.quantity}
                   </Text>
                 </View>
               ))}
-              {item.details && item.details.length > 2 && (
+              {(item as Order).details && (item as Order).details.length > 2 && (
                 <Text className="text-gray-500 text-sm">
-                  +{item.details.length - 2} sản phẩm khác
+                  +{(item as Order).details.length - 2} sản phẩm khác
                 </Text>
               )}
             </>
@@ -275,22 +377,26 @@ export default function OrdersScreen() {
       </View>
 
       {/* Tabs */}
-      <View className="bg-white px-4 py-3">
-        <View className="flex-row justify-evenly">
-          {orderTabs.map((tab) => (
+      <View className="bg-white py-3">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16 }}
+        >
+          {orderTabs.map((tab, index) => (
             <TouchableOpacity
               key={tab.key}
               onPress={() => setActiveTab(tab.key)}
-              className={`pb-2 ${activeTab === tab.key ? 'border-b-2 border-orange-500' : ''}`}
+              className={`pb-2 px-4 ${index < orderTabs.length - 1 ? 'mr-6' : ''} ${activeTab === tab.key ? 'border-b-2 border-orange-500' : ''}`}
             >
               <Text
-                className={`text-sm ${activeTab === tab.key ? 'text-orange-500 font-semibold' : 'text-gray-600'}`}
+                className={`text-sm whitespace-nowrap ${activeTab === tab.key ? 'text-orange-500 font-semibold' : 'text-gray-600'}`}
               >
                 {tab.label}
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
       </View>
 
 

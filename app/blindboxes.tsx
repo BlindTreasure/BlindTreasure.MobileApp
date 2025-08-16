@@ -47,7 +47,7 @@ export default function BlindBoxesScreen() {
         setError(null);
       }
 
-      const response = await axios.get(`${API_BASE_URL}/blind-boxes`, {
+      const response = await axios.get(`${API_BASE_URL}/api/blind-boxes`, {
         params: {
           status: 'Approved',
           page: pageNum,
@@ -175,7 +175,7 @@ export default function BlindBoxesScreen() {
         renderItem={renderBlindBox}
         keyExtractor={(item) => item.id}
         numColumns={2}
-        key={2} // Force re-render when numColumns changes
+        key={2} 
         columnWrapperStyle={{ flexDirection: 'row' }}
         contentContainerStyle={{ padding: 8 }}
         refreshControl={
