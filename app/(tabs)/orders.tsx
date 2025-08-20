@@ -198,20 +198,18 @@ export default function OrdersScreen() {
 
   const handleOrderPress = (item: any) => {
     if (activeTab === 'INVENTORY') {
-      // For inventory items, navigate to tracking with shipment info
       router.push(`/order/tracking/${item.id}`);
     } else if (activeTab === 'DELIVERING') {
-      // For order details, navigate to tracking
       router.push(`/order/tracking/${item.id}`);
     } else if (activeTab === 'DELIVERED') {
-      // For delivered orders, navigate to delivered order view
-      router.push(`/order/delivered/${item.id}`);
+      // Use orderId for delivered orders since item is OrderDetail
+      const targetId = (item as OrderDetail).orderId || item.id;
+      router.push(`/order/delivered/${targetId}`);
     } else {
       // For orders, navigate based on status
       if (item.status === 'RETURNED') {
         router.push(`/order/return/${item.id}`);
       } else if (item.status === 'CANCELLED') {
-        // For cancelled orders, just show order details (payment cancellation, not refund)
         router.push(`/order/${item.id}`);
       } else {
         router.push(`/order/${item.id}`);
@@ -224,25 +222,67 @@ export default function OrdersScreen() {
     const isInventoryItem = activeTab === 'INVENTORY';
     const isOrderDetail = activeTab === 'DELIVERING' || activeTab === 'DELIVERED';
 
-    // Calculate total shipping fee from shipments
-    const getTotalShippingFee = (order: Order): number => {
-      if (!order.details) return 0;
+    // Helper function to find parent order for OrderDetail
+    const findParentOrder = (orderDetail: OrderDetail): Order | null => {
+      if (!('orderId' in orderDetail)) return null;
+      return orders.find(order => order.id === orderDetail.orderId) || null;
+    };
 
-      return order.details.reduce((total, detail) => {
-        if (detail.shipments && detail.shipments.length > 0) {
-          return total + detail.shipments.reduce((shipmentTotal, shipment) => {
-            return shipmentTotal + (shipment.totalFee || 0);
-          }, 0);
-        }
-        return total;
-      }, 0);
+    // Calculate total shipping fee from shipments
+    const getTotalShippingFee = (item: Order | OrderDetail): number => {
+      // If this is an OrderDetail (has orderId), calculate from its shipments
+      if ('orderId' in item && item.shipments) {
+        return item.shipments.reduce((total, shipment) => {
+          return total + (shipment.totalFee || 0);
+        }, 0);
+      }
+
+      // If this is an Order (has details), calculate from all details' shipments
+      if ('details' in item && item.details) {
+        return item.details.reduce((total, detail) => {
+          if (detail.shipments && detail.shipments.length > 0) {
+            return total + detail.shipments.reduce((shipmentTotal, shipment) => {
+              return shipmentTotal + (shipment.totalFee || 0);
+            }, 0);
+          }
+          return total;
+        }, 0);
+      }
+
+      return 0;
     };
 
     // Calculate total payment for orders: finalAmount + totalShippingFee - discount - promotion
-    const calculateTotalPayment = (order: Order): number => {
-      const paymentDiscount = order.payment?.discountRate || 0;
-      const promotionDiscount = order.details?.[0]?.detailDiscountPromotion || 0;
-      return order.finalAmount + getTotalShippingFee(order) - paymentDiscount - promotionDiscount;
+    const calculateTotalPayment = (item: Order | OrderDetail): number => {
+      // If this is an OrderDetail, try to get parent order for accurate calculation
+      if ('orderId' in item) {
+        const parentOrder = findParentOrder(item);
+
+        if (parentOrder) {
+          // Use parent order's calculation but proportional to this detail
+          const promotionDiscount = item.detailDiscountPromotion || 0;
+          const shippingFee = getTotalShippingFee(item);
+          const total = (item.totalPrice || 0) + shippingFee - promotionDiscount;
+
+          return total;
+        } else {
+          // Fallback: just use totalPrice + shipping fee
+          const shippingFee = getTotalShippingFee(item);
+          const total = (item.totalPrice || 0) + shippingFee;
+          return total;
+        }
+      }
+
+      // If this is an Order, use finalAmount + shipping fee - discounts
+      if ('finalAmount' in item) {
+        const paymentDiscount = item.payment?.discountRate || 0;
+        const promotionDiscount = item.details?.[0]?.detailDiscountPromotion || 0;
+        const shippingFee = getTotalShippingFee(item);
+        const total = item.finalAmount + shippingFee - paymentDiscount - promotionDiscount;
+        return total;
+      }
+
+      return 0;
     };
 
     return (
@@ -281,10 +321,7 @@ export default function OrdersScreen() {
                 // For inventory items (exchange orders), show "Trao đổi" instead of price
                 <Text className="text-blue-600 font-semibold">Trao đổi</Text>
               ) : (
-                formatCurrency(isOrderDetail
-                  ? (item as OrderDetail).totalPrice
-                  : calculateTotalPayment(item as Order)
-                )
+                formatCurrency(calculateTotalPayment(item as Order | OrderDetail))
               )}
             </Text>
           </View>

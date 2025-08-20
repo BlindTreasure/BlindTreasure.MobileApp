@@ -37,15 +37,22 @@ export default function DeliveredOrderScreen() {
 
   const fetchOrderData = async () => {
     try {
-      // Get order detail info
-      const detailResponse = await ordersApi.getTrackingInfo(id as string);
-      if (detailResponse.isSuccess && detailResponse.data) {
-        setOrderDetail(detailResponse.data);
+      // Get order info directly using order ID
+      const orderResponse = await ordersApi.getOrderById(id as string);
 
-        // Get parent order info
-        const orderResponse = await ordersApi.getOrderFromDetail(id as string);
-        if (orderResponse.isSuccess && orderResponse.data) {
-          setParentOrder(orderResponse.data);
+      if (orderResponse.isSuccess && orderResponse.data) {
+        const orderData = orderResponse.data.result || orderResponse.data;
+        setParentOrder(orderData);
+
+        // Find the first delivered order detail
+        const deliveredDetail = orderData.details?.find((detail: any) =>
+          detail.status === 'DELIVERED' || detail.status === 'COMPLETED'
+        );
+
+        if (deliveredDetail) {
+          setOrderDetail(deliveredDetail);
+        } else {
+          setOrderDetail(orderData.details?.[0] || null);
         }
       } else {
         Alert.alert('Lỗi', 'Không thể tải thông tin đơn hàng');
