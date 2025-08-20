@@ -63,6 +63,20 @@ export default function OrderDetailScreen() {
     return new Date(dateString).toLocaleDateString('vi-VN');
   };
 
+  // Calculate total shipping fee from shipments
+  const getTotalShippingFee = (order: Order): number => {
+    if (!order.details) return 0;
+
+    return order.details.reduce((total, detail) => {
+      if (detail.shipments && detail.shipments.length > 0) {
+        return total + detail.shipments.reduce((shipmentTotal, shipment) => {
+          return shipmentTotal + (shipment.totalFee || 0);
+        }, 0);
+      }
+      return total;
+    }, 0);
+  };
+
 
 
   const handleTogglePrice = () => {
@@ -207,7 +221,7 @@ export default function OrderDetailScreen() {
               <Text className="text-gray-900 font-bold">Tổng thanh toán:</Text>
               <View className="flex-row items-center">
                 <Text className="text-gray-900 font-bold text-lg">
-                  {formatCurrency(order.finalAmount + order.totalShippingFee - (order.details?.[0]?.detailDiscountPromotion || 0))}
+                  {formatCurrency(order.finalAmount + getTotalShippingFee(order) - (order.details?.[0]?.detailDiscountPromotion || 0))}
                 </Text>
                 <TouchableOpacity onPress={handleTogglePrice} className="ml-2">
                   <Ionicons
@@ -225,10 +239,10 @@ export default function OrderDetailScreen() {
                   <Text className="text-gray-600">Tiền sản phẩm</Text>
                   <Text className="text-gray-900">{formatCurrency(order.finalAmount)}</Text>
                 </View>
-                {order.totalShippingFee > 0 && (
+                {getTotalShippingFee(order) > 0 && (
                   <View className="flex-row justify-between">
                     <Text className="text-gray-600">Phí vận chuyển</Text>
-                    <Text className="text-gray-900">{formatCurrency(order.totalShippingFee)}</Text>
+                    <Text className="text-gray-900">{formatCurrency(getTotalShippingFee(order))}</Text>
                   </View>
                 )}
                 {order.details?.[0]?.detailDiscountPromotion && (
@@ -243,7 +257,7 @@ export default function OrderDetailScreen() {
                   <View className="flex-row justify-between">
                     <Text className="text-gray-900 font-bold">Tổng thanh toán</Text>
                     <Text className="text-gray-900 font-bold">
-                      {formatCurrency(order.finalAmount + order.totalShippingFee - (order.details?.[0]?.detailDiscountPromotion || 0))}
+                      {formatCurrency(order.finalAmount + getTotalShippingFee(order) - (order.details?.[0]?.detailDiscountPromotion || 0))}
                     </Text>
                   </View>
                 </View>

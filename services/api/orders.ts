@@ -150,7 +150,7 @@ export const ordersApi = {
       logs: orderDetail.logs,
       totalPayment: parentOrder
         ? parentOrder.finalAmount +
-          parentOrder.totalShippingFee -
+          (shipment?.totalFee || 0) -
           (parentOrder.payment?.discountRate || 0)
         : orderDetail.totalPrice,
     };

@@ -224,11 +224,25 @@ export default function OrdersScreen() {
     const isInventoryItem = activeTab === 'INVENTORY';
     const isOrderDetail = activeTab === 'DELIVERING' || activeTab === 'DELIVERED';
 
+    // Calculate total shipping fee from shipments
+    const getTotalShippingFee = (order: Order): number => {
+      if (!order.details) return 0;
+
+      return order.details.reduce((total, detail) => {
+        if (detail.shipments && detail.shipments.length > 0) {
+          return total + detail.shipments.reduce((shipmentTotal, shipment) => {
+            return shipmentTotal + (shipment.totalFee || 0);
+          }, 0);
+        }
+        return total;
+      }, 0);
+    };
+
     // Calculate total payment for orders: finalAmount + totalShippingFee - discount - promotion
     const calculateTotalPayment = (order: Order): number => {
       const paymentDiscount = order.payment?.discountRate || 0;
       const promotionDiscount = order.details?.[0]?.detailDiscountPromotion || 0;
-      return order.finalAmount + order.totalShippingFee - paymentDiscount - promotionDiscount;
+      return order.finalAmount + getTotalShippingFee(order) - paymentDiscount - promotionDiscount;
     };
 
     return (

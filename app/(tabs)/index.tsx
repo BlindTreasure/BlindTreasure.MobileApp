@@ -4,7 +4,7 @@ import { Image } from '@/components/ui/image';
 import axios from 'axios';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -180,12 +180,20 @@ export default function HomeScreen() {
                     resizeMode="contain"
                   />
 
-                  <Text className="font-semibold text-center text-gray-800 mb-2 text-base" numberOfLines={2}>
+                  <Text className="font-semibold text-center text-gray-800 mb-2 text-base truncate" numberOfLines={1}>
                     {item.name || 'No name'}
                   </Text>
-                  <Text className="text-xl text-red-500">
-                    {item.price?.toLocaleString() ?? 'N/A'}₫
-                  </Text>
+                  <View className="flex-row items-center justify-between w-full">
+                    {item.listedPrice && (
+                      <Text className="text-gray-400 text-base line-through">
+                        {item.listedPrice.toLocaleString()}₫
+                      </Text>
+                    )}
+
+                    <Text className="text-xl text-red-500 font-semibold">
+                      {item.realSellingPrice?.toLocaleString() ?? 'N/A'}₫
+                    </Text>
+                  </View>
                 </Box>
               </TouchableOpacity>
             ))}

@@ -22,7 +22,9 @@ interface Product {
   id: string;
   name: string;
   imageUrls: string[];
-  price: number;
+  realSellingPrice: number;
+  listedPrice: number;
+  // price: number;
   createdAt: string;
   status: string;
 }
@@ -109,12 +111,20 @@ export default function ProductsScreen() {
           className="w-full h-40 rounded-2xl mb-3"
           resizeMode="contain"
         />
-        <Text className="font-semibold text-center text-gray-800 mb-2 text-sm" numberOfLines={2}>
+        <Text className="font-semibold text-center text-gray-800 mb-2 text-sm" numberOfLines={1}>
           {item.name || 'No name'}
         </Text>
-        <Text className="text-lg text-red-500 font-bold">
-          {item.price?.toLocaleString() ?? 'N/A'}₫
-        </Text>
+        <View className="flex-row items-center justify-between w-full">
+          {item.listedPrice && (
+            <Text className="text-gray-400 line-through text-sm">
+              {item.listedPrice.toLocaleString()}₫
+            </Text>
+          )}
+
+          <Text className="text-sm text-red-500 font-semibold">
+            {item.realSellingPrice?.toLocaleString() ?? 'N/A'}₫
+          </Text>
+        </View>
       </Box>
     </TouchableOpacity>
   );

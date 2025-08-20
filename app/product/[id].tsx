@@ -20,8 +20,11 @@ interface ProductDetail {
   name: string;
   description: string;
   categoryId: string;
-  price: number;
-  stock: number;
+  // price: number;
+  // stock: number;
+  realSellingPrice: number;
+  listedPrice: number;
+  totalStockQuantity: number;
   productStockStatus: string;
   height: number;
   material: string;
@@ -161,12 +164,16 @@ export default function ProductDetailScreen() {
 
         <View className="bg-white mx-4 mt-4 rounded-3xl shadow-sm p-6">
           <Text className="text-2xl font-bold text-gray-900 mb-3">{product.name}</Text>
-          <View className="bg-red-50 px-4 py-3 rounded-2xl mb-4">
-            <Text className="text-2xl font-bold text-red-600 text-center">
-              {product.price?.toLocaleString()}₫
+          <View className="bg-red-50 px-4 py-3 rounded-2xl mb-4 flex flex-row items-center justify-between">
+            {product.listedPrice && (
+              <Text className="text-2xl text-gray-400 line-through mt-1">
+                {product.listedPrice.toLocaleString()}₫
+              </Text>
+            )}
+            <Text className="text-2xl font-bold text-red-600">
+              {product.realSellingPrice?.toLocaleString()}₫
             </Text>
           </View>
-
           <View className="bg-gray-50 p-4 rounded-2xl mb-4">
             <Text className="text-gray-700 font-medium mb-2">Mô tả sản phẩm:</Text>
 
@@ -202,7 +209,7 @@ export default function ProductDetailScreen() {
             </View>
             <View className="flex-row justify-between items-center py-2">
               <Text className="text-gray-600 font-medium">Còn lại:</Text>
-              <Text className="text-gray-800 font-semibold">{product.stock || 0} sản phẩm</Text>
+              <Text className="text-gray-800 font-semibold">{product.totalStockQuantity || 0} sản phẩm</Text>
             </View>
           </View>
 

@@ -160,7 +160,11 @@ export default function BlindBoxDetailScreen() {
 
             <View className="flex flex-row gap-2">
               <Text className="text-gray-600 font-medium mb-2">Mô tả:</Text>
-              <Text className="text-gray-800 leading-6">
+              <Text
+                className="text-gray-800 leading-6 flex-1"
+                numberOfLines={2}         
+                ellipsizeMode="tail"     
+              >
                 {blindBox.description || 'Không có mô tả'}
               </Text>
             </View>
