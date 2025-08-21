@@ -18,8 +18,6 @@ import { ORDER_STATUS_COLORS, ORDER_STATUS_MAP } from '../../constants/orderStat
 import { ordersApi } from '../../services/api/orders';
 import { InventoryItem, Order, OrderDetail } from '../../services/api/types/orders';
 
-
-
 const orderTabs = [
   { key: 'ALL', label: 'Tất cả' },
   { key: 'PENDING', label: 'Chờ xác nhận' },
@@ -27,6 +25,7 @@ const orderTabs = [
   { key: 'DELIVERED', label: 'Hoàn thành' },
   { key: 'CANCELLED', label: 'Đã hủy' },
   { key: 'INVENTORY', label: 'Giao hàng túi đồ' },
+  { key: 'IN_INVENTORY', label: 'Trong túi đồ' },
 ];
 
 export default function OrdersScreen() {
@@ -47,7 +46,6 @@ export default function OrdersScreen() {
       if (response.isSuccess && response.data) {
         const ordersData = response.data;
 
-        // Handle response structure - should have 'result' array
         let ordersList: Order[] = [];
         if (Array.isArray(ordersData)) {
           ordersList = ordersData;
@@ -73,7 +71,6 @@ export default function OrdersScreen() {
       if (response.isSuccess && response.data) {
         const detailsData = response.data;
 
-        // Handle response structure - should have 'result' array
         let detailsList: OrderDetail[] = [];
         if (Array.isArray(detailsData)) {
           detailsList = detailsData;
@@ -145,7 +142,6 @@ export default function OrdersScreen() {
     fetchData();
   }, []);
 
-  // Refresh data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchData();
@@ -158,26 +154,32 @@ export default function OrdersScreen() {
     setRefreshing(false);
   };
 
-  // Get filtered data based on active tab
   const getFilteredData = () => {
     if (activeTab === 'INVENTORY') {
-      // For "Giao hàng túi đồ", use inventory items with DELIVERED and DELIVERING status and null orderDetailId
       const result = Array.isArray(inventoryItems) ? inventoryItems : [];
       return result;
+    } else if (activeTab === 'IN_INVENTORY') {
+      const detailList = Array.isArray(orderDetails) ? orderDetails.filter(detail => detail.status === 'IN_INVENTORY') : [];
+      return detailList;
     } else if (activeTab === 'DELIVERING') {
-      // For "Đang giao hàng", use orderDetails from /orders/order-details
-      const result = Array.isArray(orderDetails) ? orderDetails.filter(detail => detail.status === 'DELIVERING') : [];
-      return result;
+      const orderList = Array.isArray(orders) ? orders.filter(order => order.status === 'DELIVERING') : [];
+      const detailList = Array.isArray(orderDetails) ? orderDetails.filter(detail => detail.status === 'DELIVERING') : [];
+      return [...orderList, ...detailList];
     } else if (activeTab === 'DELIVERED') {
-      // For "Đã giao", use deliveredOrders from /orders/order-details with DELIVERED status
-      const result = Array.isArray(deliveredOrders) ? deliveredOrders : [];
-      return result;
+      const orderList = Array.isArray(orders) ? orders.filter(order => order.status === 'DELIVERED') : [];
+      const detailList = Array.isArray(deliveredOrders) ? deliveredOrders : [];
+      return [...orderList, ...detailList];
+    } else if (activeTab === 'PENDING') {
+      const orderList = Array.isArray(orders) ? orders.filter(order => order.status === 'PENDING') : [];
+      const detailList = Array.isArray(orderDetails) ? orderDetails.filter(detail => detail.status === 'PENDING') : [];
+      return [...orderList, ...detailList];
+    } else if (activeTab === 'CANCELLED') {
+      const orderList = Array.isArray(orders) ? orders.filter(order => order.status === 'CANCELLED' || order.status === 'EXPIRED') : [];
+      return orderList;
     } else if (activeTab === 'ALL') {
-      // For "Tất cả", combine all orders
       const result = Array.isArray(orders) ? orders : [];
       return result;
     } else {
-      // For other tabs, filter orders by status
       const result = Array.isArray(orders) ? orders.filter(order => order.status === activeTab) : [];
       return result;
     }
@@ -202,11 +204,15 @@ export default function OrdersScreen() {
     } else if (activeTab === 'DELIVERING') {
       router.push(`/order/tracking/${item.id}`);
     } else if (activeTab === 'DELIVERED') {
-      // Use orderId for delivered orders since item is OrderDetail
       const targetId = (item as OrderDetail).orderId || item.id;
       router.push(`/order/delivered/${targetId}`);
+    } else if (activeTab === 'IN_INVENTORY') {
+      if ('orderId' in item) {
+        router.push(`/order/${item.orderId}`);
+      } else {
+        router.push(`/order/${item.id}`);
+      }
     } else {
-      // For orders, navigate based on status
       if (item.status === 'RETURNED') {
         router.push(`/order/return/${item.id}`);
       } else if (item.status === 'CANCELLED') {
@@ -218,26 +224,21 @@ export default function OrdersScreen() {
   };
 
   const renderItem = ({ item }: { item: Order | OrderDetail | InventoryItem }) => {
-    // Check if this is an InventoryItem (from /api/inventory-items)
     const isInventoryItem = activeTab === 'INVENTORY';
-    const isOrderDetail = activeTab === 'DELIVERING' || activeTab === 'DELIVERED';
+    const isOrderDetail = activeTab === 'DELIVERING' || activeTab === 'DELIVERED' || activeTab === 'IN_INVENTORY';
 
-    // Helper function to find parent order for OrderDetail
     const findParentOrder = (orderDetail: OrderDetail): Order | null => {
       if (!('orderId' in orderDetail)) return null;
       return orders.find(order => order.id === orderDetail.orderId) || null;
     };
 
-    // Calculate total shipping fee from shipments
     const getTotalShippingFee = (item: Order | OrderDetail): number => {
-      // If this is an OrderDetail (has orderId), calculate from its shipments
       if ('orderId' in item && item.shipments) {
         return item.shipments.reduce((total, shipment) => {
           return total + (shipment.totalFee || 0);
         }, 0);
       }
 
-      // If this is an Order (has details), calculate from all details' shipments
       if ('details' in item && item.details) {
         return item.details.reduce((total, detail) => {
           if (detail.shipments && detail.shipments.length > 0) {

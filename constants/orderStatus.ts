@@ -9,9 +9,11 @@ export const ORDER_STATUS_MAP = {
   CANCELLED: "Đã hủy",
   RETURNED: "Trả hàng",
   REFUNDED: "Đã hoàn tiền",
+  EXPIRED: "Đã hủy",
   // Add case-sensitive variants for inventory items
   Delivering: "Đang giao hàng",
   Delivered: "Đã giao",
+  IN_INVENTORY: "Trong túi đồ",
 };
 
 // Order detail item status mapping (from backend enum)
@@ -37,9 +39,11 @@ export const ORDER_STATUS_COLORS = {
   CANCELLED: "#FF3B30",
   RETURNED: "#FF9500",
   REFUNDED: "#34C759",
+  EXPIRED: "#FF3B30",
   // Add case-sensitive variants for inventory items
   Delivering: "#FF6B35",
   Delivered: "#34C759",
+  IN_INVENTORY: "#007AFF",
 };
 
 // Order detail item status colors

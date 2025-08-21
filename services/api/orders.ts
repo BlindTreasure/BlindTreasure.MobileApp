@@ -94,13 +94,13 @@ export const ordersApi = {
     try {
       const response = await axiosInstance.get<
         ApiResponse<OrderDetailsListResponse>
-      >(`/api/orders/order-details`);
+      >(`/api/orders/order-details`, {
+        params: { status: 'DELIVERING', page: 1, pageSize: 50 },
+      });
 
       if (response.data?.isSuccess && response.data?.value?.data) {
         const data = response.data.value.data;
         const result = data.result || data;
-
-        // Find the specific order detail by ID
         const orderDetail = Array.isArray(result)
           ? result.find((item: OrderDetail) => item.id === orderDetailId)
           : null;
