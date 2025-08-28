@@ -80,7 +80,7 @@ export function Header() {
           className="flex-row items-center space-x-2"
         >
           {renderAvatar()}
-          <Ionicons name="chevron-down" size={16} color="#6B7280" />
+          {/* <Ionicons name="chevron-down" size={16} color="#6B7280" /> */}
         </TouchableOpacity>
       </View>
 

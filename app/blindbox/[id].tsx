@@ -9,6 +9,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Platform,
   ScrollView,
   StatusBar,
@@ -141,14 +142,18 @@ export default function BlindBoxDetailScreen() {
           <Box className="p-6">
             <View className="flex flex-row justify-between items-start mb-4">
               <View className="flex-1 pr-2">
-                <Heading
-                  size="xl"
-                  className="text-gray-800"
-                  numberOfLines={2}
-                  ellipsizeMode="tail"
+                <TouchableOpacity
+                  onPress={() => Alert.alert("Tên Blindbox", blindBox.name)}
                 >
-                  {blindBox.name}
-                </Heading>
+                  <Heading
+                    size="xl"
+                    className="text-gray-800"
+                    numberOfLines={2}
+                    ellipsizeMode="tail"
+                  >
+                    {blindBox.name}
+                  </Heading>
+                </TouchableOpacity>
               </View>
 
               <View className="flex-row items-center">
@@ -160,13 +165,17 @@ export default function BlindBoxDetailScreen() {
 
             <View className="flex flex-row gap-2">
               <Text className="text-gray-600 font-medium mb-2">Mô tả:</Text>
-              <Text
-                className="text-gray-800 leading-6 flex-1"
-                numberOfLines={2}         
-                ellipsizeMode="tail"     
+              <TouchableOpacity
+                onPress={() => Alert.alert("Tên sản phẩm", blindBox.description || "Không có mô tả")}
               >
-                {blindBox.description || 'Không có mô tả'}
-              </Text>
+                <Text
+                  className="text-gray-800 leading-6 flex-1"
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
+                >
+                  {blindBox.description || "Không có mô tả"}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             <View className="border-b border-gray-200">

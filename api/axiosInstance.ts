@@ -51,6 +51,11 @@ axiosInstance.interceptors.response.use(
             `${API_BASE_URL}/api/auth/refresh-token`,
             {
               refreshToken,
+            },
+            {
+              headers: {
+                'Content-Type': 'application/json-patch+json',
+              },
             }
           );
 

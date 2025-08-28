@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   RefreshControl,
   StatusBar,
@@ -109,9 +110,17 @@ export default function BlindBoxesScreen() {
           className="w-full h-40 rounded-2xl mb-3"
           resizeMode="contain"
         />
-        <Text className="font-semibold text-center text-gray-800 mb-2 text-sm" numberOfLines={2}>
-          {item.name || 'No name'}
-        </Text>
+        <TouchableOpacity
+          onPress={() => Alert.alert("Tên sản phẩm", item.name || "No name")}
+        >
+          <Text
+            className="font-semibold text-center text-gray-800 mb-2 text-base"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {item.name || "No name"}
+          </Text>
+        </TouchableOpacity>
         <Text className="text-lg text-red-500 font-bold">
           {item.price?.toLocaleString() ?? 'N/A'}₫
         </Text>
@@ -175,7 +184,7 @@ export default function BlindBoxesScreen() {
         renderItem={renderBlindBox}
         keyExtractor={(item) => item.id}
         numColumns={2}
-        key={2} 
+        key={2}
         columnWrapperStyle={{ flexDirection: 'row' }}
         contentContainerStyle={{ padding: 8 }}
         refreshControl={

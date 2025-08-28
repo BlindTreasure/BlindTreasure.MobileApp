@@ -4,7 +4,7 @@ import { Image } from '@/components/ui/image';
 import axios from 'axios';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -142,9 +142,17 @@ export default function HomeScreen() {
                     className="w-40 h-40 rounded-2xl mb-4"
                     resizeMode="contain"
                   />
-                  <Text className="font-semibold text-center text-gray-800 mb-2 text-base" numberOfLines={2}>
-                    {item.name || 'No name'}
-                  </Text>
+                  <TouchableOpacity
+                    onPress={() => Alert.alert("Tên sản phẩm", item.name || "No name")}
+                  >
+                    <Text
+                      className="font-semibold text-center text-gray-800 mb-2 text-base"
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {item.name || "No name"}
+                    </Text>
+                  </TouchableOpacity>
                   <Text className="text-xl text-red-500">
                     {item.price?.toLocaleString() ?? 'N/A'}₫
                   </Text>
@@ -179,10 +187,17 @@ export default function HomeScreen() {
                     className="w-40 h-40 rounded-2xl mb-4"
                     resizeMode="contain"
                   />
-
-                  <Text className="font-semibold text-center text-gray-800 mb-2 text-base truncate" numberOfLines={1}>
-                    {item.name || 'No name'}
-                  </Text>
+                  <TouchableOpacity
+                    onPress={() => Alert.alert("Tên sản phẩm", item.name || "No name")}
+                  >
+                    <Text
+                      className="font-semibold text-center text-gray-800 mb-2 text-base"
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {item.name || "No name"}
+                    </Text>
+                  </TouchableOpacity>
                   <View className="flex-row items-center justify-between w-full">
                     {item.listedPrice && (
                       <Text className="text-gray-400 text-base line-through">
